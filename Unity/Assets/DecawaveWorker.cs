@@ -6,7 +6,6 @@
  */
 
 using Marin2.Decawave.Unity3d;
-using Marin2.Trilinear;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
@@ -16,11 +15,14 @@ public class DecawaveWorker : MonoBehaviour {
     private string dataString;
     private DecawaveManager manager;
 
-    private Dictionary<string, Dictionary<int, int>> values = new Dictionary<string, Dictionary<int, int>>();
-
-    private static readonly Vector3 anchor0Pos = new Vector3( 4.313f, 0.95f, 0.183f );
-    private static readonly Vector3 anchor1Pos = new Vector3( .14f, .955f, .28f );
-    private static readonly Vector3 anchor2Pos = new Vector3( .135f, .94f, 6.718f );
+    // Hard coded MR-lab anchor positions
+    private static readonly Dictionary<int, Vector3> anchorPositions = new Dictionary<int, Vector3>
+    {
+        {0, new Vector3( 4.313f, 0.95f, 0.183f ) },
+        {1, new Vector3( .14f, .955f, .28f ) },
+        {2,  new Vector3( .135f, .94f, 6.718f ) },
+        {3,  new Vector3( 4.269f, 1.843f, 5.064f ) }
+    };
 
     // Use this for initialization
     void Start () {
@@ -30,40 +32,16 @@ public class DecawaveWorker : MonoBehaviour {
         manager.ReceiverAppeared += Manager_ReceiverAppeared;
     }
 
-    private void Manager_ReceiverAppeared( DecawaveManager manager, Receiver beacon )
+    private void Manager_ReceiverAppeared( DecawaveManager manager, Receiver receiver )
     {
-        // Store new device
-        values.Add( beacon.Serial, new Dictionary<int, int>() );
-        // Attach event for disappearance and for new anchors
-        beacon.AnchorAppeared += Receiver_AnchorAppeared;
-        beacon.Disconnected += Receiver_Disconnected;
-    }
-
-    private void Receiver_Disconnected( Receiver beacon )
-    {
-        // Remove device
-        values.Remove( beacon.Serial );
-    }
-
-    private void Receiver_AnchorAppeared( Receiver beacon, Anchor anchor )
-    {
-        // Add new anchor
-        values[beacon.Serial].Add( anchor.Id, anchor.Distance );
-        // Attach anchor related events
-        anchor.Updated += Anchor_Updated;
-        anchor.Disappeared += Anchor_Disappeared;
-    }
-
-    private void Anchor_Disappeared( Anchor anchor )
-    {
-        // Remove anchor
-        values[anchor.Receiver.Serial].Remove( anchor.Id );
-    }
-
-    private void Anchor_Updated( Anchor anchor, int newDistance, int oldDistance )
-    {
-        // Update anchor value
-        values[anchor.Receiver.Serial][anchor.Id] = newDistance;
+        // Announce the physical anchor positions for the receiver
+        foreach ( KeyValuePair<int, Vector3> anchorPosition in anchorPositions )
+        {
+            receiver.SetAnchorPosition( anchorPosition.Key, anchorPosition.Value );
+        }
+        // Set performance related preferences
+        receiver.CalculationLevel = CalculationLevel.Low;
+        receiver.UpdateLevel = UpdateLevel.OnUpdate;
     }
 
     // Update is called once per frame
@@ -74,37 +52,73 @@ public class DecawaveWorker : MonoBehaviour {
 
         // Example string build for data
         StringBuilder builder = new StringBuilder();
-        foreach ( KeyValuePair<string, Dictionary<int, int>> beacon in values )
+        foreach ( Receiver receiver in manager.Receivers )
         {
-            builder.AppendLine( "BEACON: " + beacon.Key );
-            foreach ( KeyValuePair<int, int> anchor in beacon.Value )
+            builder.AppendLine( "Receiver \"" + receiver.Serial + "\"" );
+
+            // Get latest calculation result
+            ICalculationResult result = receiver.CalculationResult;
+            foreach ( Anchor anchor in receiver.Anchors )
             {
-                switch ( anchor.Key )
+                if ( anchorPositions.ContainsKey( anchor.Id ) )
                 {
-                    case 0:
-                        builder.AppendLine( "\tANCHOR-" + anchor.Key + ": " + anchor.Value + " " + VectorString( anchor0Pos ) );
-                        break;
-                    case 1:
-                        builder.AppendLine( "\tANCHOR-" + anchor.Key + ": " + anchor.Value + " " + VectorString( anchor1Pos ) );
-                        break;
-                    case 2:
-                        builder.AppendLine( "\tANCHOR-" + anchor.Key + ": " + anchor.Value + " " + VectorString( anchor2Pos ) );
-                        break;
-                    default:
-                        builder.AppendLine( "\tANCHOR-" + anchor.Key + ": " + anchor.Value );
-                        break;
+                    builder.AppendLine( "Anchor " + anchor.Id + " distance: " + anchor.Distance + " (position: " + VectorString( anchorPositions[anchor.Id] ) + ")" );
+                }
+                else
+                {
+                    builder.AppendLine( "Anchor " + anchor.Id + " distance: " + anchor.Distance );
                 }
             }
-            if ( beacon.Value.ContainsKey( 0 ) && beacon.Value.ContainsKey( 1 ) && beacon.Value.ContainsKey( 2 ) )
+            builder.AppendLine( "----- RESULT -----" );
+
+            // how to handle the result: Check the type from enum field and then cast
+            switch ( result.ResultType )
             {
-                Vector3 result1, result2;
-                if ( TrilinearCalculations.ThreePoint( anchor0Pos, anchor1Pos, anchor2Pos, beacon.Value[0] * .001f, beacon.Value[1] * .001f, beacon.Value[2] * .001f, out result1, out result2 ) )
-                {
-                    builder.AppendLine( "\tRESULTS:" );
-                    builder.AppendLine( "\t\t" + VectorString( result1 ) );
-                    builder.AppendLine( "\t\t" + VectorString( result2 ) );
-                }
+                case CalculationResultType.Null:
+                    builder.AppendLine( "No result" );
+                    break;
+                case CalculationResultType.Single:
+                    SinglePointCalculationResult singleResult = (SinglePointCalculationResult)result;
+                    builder.AppendLine( "Single point" );
+                    builder.AppendLine( "Position: " + VectorString( singleResult.Position ) );
+                    builder.AppendLine( "Radius: " + singleResult.Distance );
+                    break;
+                case CalculationResultType.Double:
+                    DoublePointCalculationResult doubleResult = (DoublePointCalculationResult)result;
+                    builder.AppendLine( "Circle result" );
+                    builder.AppendLine( "Center position: " + VectorString( doubleResult.Position ) );
+                    builder.AppendLine( "Normal Direction: " + VectorString( doubleResult.Normal ) );
+                    builder.AppendLine( "Radius: " + doubleResult.Radius );
+                    break;
+                case CalculationResultType.Trilinear:
+                    TrilinearCalculationResult triResult = (TrilinearCalculationResult)result;
+                    builder.AppendLine( "Trilinear result" );
+                    if ( triResult.CalculationErrored )
+                    {
+                        builder.AppendLine( "ERROR: Trilinear calculation failed" );
+                    }
+                    else
+                    {
+                        builder.AppendLine( "Result 1: " + VectorString( triResult.Result1 ) );
+                        builder.AppendLine( "Result 2: " + VectorString( triResult.Result2 ) );
+                    }
+                    break;
+                case CalculationResultType.Quadlinear:
+                    QuadlinearCalculationResult quadResult = (QuadlinearCalculationResult)result;
+                    builder.AppendLine( "Quadlinear result" );
+                    builder.AppendLine( "Calculated from " + quadResult.CalculationOptions + " points" );
+                    builder.AppendLine( "Calculated with " + quadResult.CalculationLevel + " calculation level" );
+                    if ( quadResult.Errored )
+                    {
+                        builder.AppendLine( "ERROR: Quadlinear calculation failed" );
+                    }
+                    else
+                    {
+                        builder.AppendLine( "Position: " + VectorString( quadResult.Position ) );
+                    }
+                    break;
             }
+            builder.AppendLine();
         }
 
         // build to string

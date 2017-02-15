@@ -4,12 +4,13 @@
  */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Marin2.Decawave.Unity3d
 {
-    public class DecawaveManager
+    public class DecawaveManager : IEnumerable<KeyValuePair<string, Receiver>>
     {
         /*
          * An event system for detecting new receivers
@@ -43,6 +44,9 @@ namespace Marin2.Decawave.Unity3d
             set;
         }
 
+        /// <summary>
+        /// DecawaveManager constructor can only be used locally
+        /// </summary>
         private DecawaveManager()
         {
             // Init anchor cooldown to 5 seconds
@@ -109,6 +113,49 @@ namespace Marin2.Decawave.Unity3d
         {
             return decawaveManager.Call<bool>("hasLogMessage") ? decawaveManager.Call<string>( "popLogMessage" ) : null;
         }
+
+        public IEnumerator<KeyValuePair<string, Receiver>> GetEnumerator()
+        {
+            return ( (IEnumerable<KeyValuePair<string, Receiver>>)receivers ).GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return receivers.GetEnumerator();
+        }
+
+        public Receiver this[string serial]
+        {
+            get
+            {
+                return receivers.ContainsKey( serial ) ? receivers[serial] : null;
+            }
+        }
+
+        public IEnumerable<string> Serials
+        {
+            get
+            {
+                return receivers.Keys;
+            }
+        }
+
+        public IEnumerable<Receiver> Receivers
+        {
+            get
+            {
+                return receivers.Values;
+            }
+        }
+
+        public int ReceiverCount
+        {
+            get
+            {
+                return receivers.Count;
+            }
+        }
+
 
     }
 }

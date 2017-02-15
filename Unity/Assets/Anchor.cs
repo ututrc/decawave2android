@@ -10,9 +10,14 @@ namespace Marin2.Decawave.Unity3d
     public class Anchor
     {
 
-        internal Anchor( Receiver beacon, int id )
+        /// <summary>
+        /// Creates Anchor object, usable only by library
+        /// </summary>
+        /// <param name="receiver">"Parent" receiver</param>
+        /// <param name="id"></param>
+        internal Anchor( Receiver receiver, int id )
         {
-            Receiver = beacon;
+            Receiver = receiver;
             Id = id;
         }
 
@@ -77,6 +82,11 @@ namespace Marin2.Decawave.Unity3d
             private set;
         }
 
+        /// <summary>
+        /// Sets new distance and timestamp
+        /// </summary>
+        /// <param name="timestamp">The given timestamp</param>
+        /// <param name="distance">The given distance</param>
         internal void Set( DateTime timestamp, int distance )
         {
             Timestamp = timestamp;
@@ -86,6 +96,9 @@ namespace Marin2.Decawave.Unity3d
                 OnUpdated( distance, oldDistance );
         }
 
+        /// <summary>
+        /// Internal workings of back-and-forth event system
+        /// </summary>
         internal void Remove()
         {
             OnDisappeared();

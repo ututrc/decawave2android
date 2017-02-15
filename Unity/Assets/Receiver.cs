@@ -6,10 +6,11 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Collections;
 
 namespace Marin2.Decawave.Unity3d
 {
-    public class Receiver
+    public class Receiver : IEnumerable<Anchor>
     {
 
         public delegate void DisconnectedEventHandler( Receiver receiver);
@@ -24,8 +25,10 @@ namespace Marin2.Decawave.Unity3d
         /// </summary>
         public event AnchorAppearedEventHandler AnchorAppeared;
 
+        // Storage of anchors detected by this receiver
         private Dictionary<int, Anchor> anchors = new Dictionary<int, Anchor>();
-
+        // calculation system
+        private LocationEngine locator;
 
         protected void OnDisconnected()
         {
@@ -45,6 +48,7 @@ namespace Marin2.Decawave.Unity3d
         {
             Manager = manager;
             Serial = serial;
+            locator = new LocationEngine();
         }
 
         /// <summary>
@@ -73,12 +77,79 @@ namespace Marin2.Decawave.Unity3d
             private set;
         }
 
+        /// <summary>
+        /// Get or set the calculation level
+        /// </summary>
+        public CalculationLevel CalculationLevel
+        {
+            get
+            {
+                return locator.CalculationLevel;
+            }
+            set
+            {
+                locator.CalculationLevel = value;
+            }
+        }
+
+        /// <summary>
+        /// Get or set the update method (every anchor update or every receiver update or not at all)
+        /// </summary>
+        public UpdateLevel UpdateLevel
+        {
+            get;
+            set;
+        }
+        /// <summary>
+        /// Latest calculation result
+        /// </summary>
+        public ICalculationResult CalculationResult
+        {
+            get;
+            private set;
+        }
+
+        /// <summary>
+        /// Internal manager-to-receiver communication to fire an event
+        /// </summary>
         internal void Disconnect()
         {
             OnDisconnected();
             IsDisconnected = true;
         }
 
+        /// <summary>
+        /// Calculates the current position
+        /// Can always be used but best used when there is no 
+        /// </summary>
+        public void Calculate()
+        {
+            CalculationResult = locator.Calculate();
+        }
+
+        /// <summary>
+        /// Set the physical position of anchor
+        /// </summary>
+        /// <param name="id">The id of the anchor</param>
+        /// <param name="position">The position of the anchor</param>
+        public void SetAnchorPosition( int id, Vector3 position )
+        {
+            locator.SetAnchorPosition( id, position );
+        }
+
+        /// <summary>
+        /// Remove the physical position of the anchor
+        /// </summary>
+        /// <param name="id">The id of the anchor</param>
+        public void UnsetAnchorPosition( int id )
+        {
+            locator.UnsetAnchorPosition( id );
+        }
+
+        /// <summary>
+        /// Automatic update function called by manager
+        /// </summary>
+        /// <param name="parser">Receiver reference object from the android system</param>
         internal void Update( AndroidJavaObject parser )
         {
             // This date is used for removing anchors that are not up-to-date
@@ -107,6 +178,12 @@ namespace Marin2.Decawave.Unity3d
                 }
                 // Setting data
                 anchor.Set( now, distance );
+                locator.SetAnchorDistance( id, distance * .001f );
+
+                if ( UpdateLevel == UpdateLevel.OnValueUpdate )
+                {
+                    CalculationResult = locator.Calculate();
+                }
 
             }
 
@@ -118,7 +195,74 @@ namespace Marin2.Decawave.Unity3d
                 {
                     anchors[anchorId].Remove();
                     anchors.Remove( anchorId );
+                    locator.UnsetAnchorDistance( anchorId );
                 }
+            }
+
+            
+            if ( UpdateLevel == UpdateLevel.OnUpdate )
+            {
+                CalculationResult = locator.Calculate();
+            }
+        }
+
+        /// <summary>
+        /// Get the enumeration of anchors
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerator<Anchor> GetEnumerator()
+        {
+            return ( (IEnumerable<Anchor>)anchors ).GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return anchors.GetEnumerator();
+        }
+
+        /// <summary>
+        /// Get an anchor by id
+        /// </summary>
+        /// <param name="id">The id of anchor</param>
+        /// <returns>An anchor</returns>
+        public Anchor this[int id]
+        {
+            get
+            {
+                return anchors[id];
+            }
+        }
+
+        /// <summary>
+        /// Get every anchor id available
+        /// </summary>
+        public IEnumerable<int> Ids
+        {
+            get
+            {
+                return anchors.Keys;
+            }
+        }
+
+        /// <summary>
+        /// Get every anchor available
+        /// </summary>
+        public IEnumerable<Anchor> Anchors
+        {
+            get
+            {
+                return anchors.Values;
+            }
+        }
+
+        /// <summary>
+        /// Get the count of anchors
+        /// </summary>
+        public int AnchorCount
+        {
+            get
+            {
+                return anchors.Count;
             }
         }
     }

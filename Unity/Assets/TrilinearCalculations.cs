@@ -6,7 +6,7 @@
 using System;
 using UnityEngine;
 
-namespace Marin2.Trilinear
+namespace Marin2.Decawave.Unity3d
 {
     public static class TrilinearCalculations
     {
@@ -24,21 +24,16 @@ namespace Marin2.Trilinear
         /// <returns>true if calculation successful</returns>
         public static bool ThreePoint( Vector3 anchor1Pos, Vector3 anchor2Pos, Vector3 anchor3Pos, float anchor1dist, float anchor2dist, float anchor3dist, out Vector3 result1, out Vector3 result2 )
         {
-            Vector3 a1 = anchor1Pos;
-            Vector3 a2 = anchor2Pos;
-            Vector3 a3 = anchor3Pos;
-
-            float d1 = anchor1dist;
-            float d2 = anchor2dist;
-            float d3 = anchor3dist;
-
-            Vector3 v12 = a2 - a1;
-            Vector3 v23 = a3 - a2;
-            Vector3 v31 = a1 - a3;
-
-            Vector3 pP = a1;
+            
+            // Calculate the vectors between every anchor
+            Vector3 v12 = anchor2Pos - anchor1Pos;
+            Vector3 v23 = anchor3Pos - anchor2Pos;
+            Vector3 v31 = anchor1Pos - anchor3Pos;
+            
+            // All the anchors form a plane, this vector (pN) is a normal vector of that plane
             Vector3 pN = Vector3.Cross( v12, v23 );
 
+            // Pre-calculation of distances and squared distances of every anchor vector as they are used frequently
             float v12sLen = v12.sqrMagnitude;
             float v23sLen = v23.sqrMagnitude;
             float v31sLen = v31.sqrMagnitude;
@@ -46,32 +41,31 @@ namespace Marin2.Trilinear
             float v23Len = (float)Math.Sqrt( v23sLen );
             float v31Len = (float)Math.Sqrt( v31sLen );
 
-            float d1s = d1 * d1;
-            float d2s = d2 * d2;
-            float d3s = d3 * d3;
-
-            float c12 = -(d2s - v12sLen - d1s ) / ( 2 * v12Len );
-            float c23 = -( d3s - v23sLen - d2s ) / ( 2 * v23Len );
-            float c31 = -( d1s - v31sLen - d3s ) / ( 2 * v31Len );
-
-            Vector3 p12 = a1 + c12 * v12 / v12Len;
-            Vector3 p23 = a2 + c23 * v23 / v23Len;
-            Vector3 p31 = a3 + c31 * v31 / v31Len;
-
-            Vector3 n12 = Vector3.Cross( pN, v12 );
-            Vector3 n23 = Vector3.Cross( pN, v23 );
-            Vector3 n31 = Vector3.Cross( pN, v31 );
-
+            // Also the anchor distances (from receiver) are squared in precalculation
+            float d1s = anchor1dist * anchor1dist;
+            float d2s = anchor2dist * anchor2dist;
+            float d3s = anchor3dist * anchor3dist;
+            
+            // This part actually calculated many things at once
+            // 1) Calculate a projected point in every line between anchors
+            // 2) Calculate a normal line that intersects those projected points
+            // 3) Calculate best possible intersection between those lines
             Vector3 bp;
-            if ( !CalculateIntersection( p12, n12, p23, n23, p31, n31, out bp ) )
+            if ( !CalculateIntersection(
+                anchor1Pos + ( -( d2s - v12sLen - d1s ) / ( 2 * v12Len ) ) * v12 / v12Len,
+                Vector3.Cross( pN, v12 ),
+                anchor2Pos + ( -( d3s - v23sLen - d2s ) / ( 2 * v23Len ) ) * v23 / v23Len,
+                Vector3.Cross( pN, v23 ),
+                anchor3Pos + ( -( d1s - v31sLen - d3s ) / ( 2 * v31Len ) ) * v31 / v31Len,
+                Vector3.Cross( pN, v31 ), out bp ) )
             {
                 result1 = new Vector3();
                 result2 = new Vector3();
                 return false;
             }
-            float a1bpsLen = ( a1 - bp ).sqrMagnitude;
-            float bd = (float)Math.Sqrt( Math.Abs( d1s - a1bpsLen ) );
-            Vector3 mod = bd * pN / pN.magnitude;
+            // Now we have a projected point in the plane but we need our actual position(s)
+            // The mod variable will contain a right length normal vector of the plane to be added and subtracted from the plane projection point
+            Vector3 mod = ( (float)Math.Sqrt( Math.Abs( d1s - ( anchor1Pos - bp ).sqrMagnitude ) ) ) * pN / pN.magnitude;
             result1 = bp + mod;
             result2 = bp - mod;
 
@@ -80,6 +74,9 @@ namespace Marin2.Trilinear
 
         private static bool CalculateIntersection( Vector3 p12, Vector3 n12, Vector3 p23, Vector3 n23, Vector3 p31, Vector3 n31, out Vector3 bp )
         {
+            // A 3-line-intersection calculation with 3D-lines gives us 9 ways to calculate intersection
+            // The best result is given when all possibilities are calculated and the averaged with nearest results
+            // This algorithm uses fast way instead where first possibility is used
             float ot;
             bool res = CalculateIntersection( p12.x, p12.y, n12.x, n12.y, p23.x, p23.y, n23.x, n23.y, out ot ) ||
                 CalculateIntersection( p12.x, p12.z, n12.x, n12.z, p23.x, p23.z, n23.x, n23.z, out ot ) ||

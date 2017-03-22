@@ -8,6 +8,9 @@ namespace Marin2.Decawave.Unity3d
     /// </summary>
     public struct NullCalculationResult : ICalculationResult
     {
+        /// <summary>
+        /// Get the type of result
+        /// </summary>
         public CalculationResultType ResultType
         {
             get

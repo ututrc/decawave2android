@@ -14,7 +14,6 @@ namespace Marin2.Decawave.Unity3d
             Distance = anchorData.Distance;
             Position = anchorData.Position;
         }
-
         /// <summary>
         /// Get the distance (or radius)
         /// </summary>
@@ -31,7 +30,9 @@ namespace Marin2.Decawave.Unity3d
             get;
             private set;
         }
-
+        /// <summary>
+        /// Get the type of result
+        /// </summary>
         public CalculationResultType ResultType
         {
             get

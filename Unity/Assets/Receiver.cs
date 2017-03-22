@@ -12,7 +12,10 @@ namespace Marin2.Decawave.Unity3d
 {
     public class Receiver : IEnumerable<Anchor>
     {
-
+        /// <summary>
+        /// Event method template for disconnect event
+        /// </summary>
+        /// <param name="receiver"></param>
         public delegate void DisconnectedEventHandler( Receiver receiver);
         /// <summary>
         /// This event lauches when receiver is disconnected
@@ -180,6 +183,7 @@ namespace Marin2.Decawave.Unity3d
                 anchor.Set( now, distance );
                 locator.SetAnchorDistance( id, distance * .001f );
 
+                // if superautoupdate => update
                 if ( UpdateLevel == UpdateLevel.OnValueUpdate )
                 {
                     CalculationResult = locator.Calculate();
@@ -187,7 +191,7 @@ namespace Marin2.Decawave.Unity3d
 
             }
 
-            // Remove all anchors that are invalid
+            // Remove all anchors that are invalid (haven't updated in a "long" time)
             HashSet<int> removables = new HashSet<int>();
             foreach ( int anchorId in anchors.Keys )
             {
@@ -199,7 +203,7 @@ namespace Marin2.Decawave.Unity3d
                 }
             }
 
-            
+            // if autoupdate => update
             if ( UpdateLevel == UpdateLevel.OnUpdate )
             {
                 CalculationResult = locator.Calculate();
@@ -215,6 +219,10 @@ namespace Marin2.Decawave.Unity3d
             return ( (IEnumerable<Anchor>)anchors ).GetEnumerator();
         }
 
+        /// <summary>
+        /// Get the enumeration of anchors
+        /// </summary>
+        /// <returns></returns>
         IEnumerator IEnumerable.GetEnumerator()
         {
             return anchors.GetEnumerator();

@@ -50,7 +50,9 @@ namespace Marin2.Decawave.Unity3d
             get;
             internal set;
         }
-
+        /// <summary>
+        /// Get the type of result
+        /// </summary>
         public CalculationResultType ResultType
         {
             get

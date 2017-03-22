@@ -66,7 +66,7 @@ namespace Marin2.Decawave.Unity3d
         }
 
         /// <summary>
-        /// Update to check for devices
+        /// Update anchor states
         /// </summary>
         public void Update()
         {
@@ -114,16 +114,29 @@ namespace Marin2.Decawave.Unity3d
             return decawaveManager.Call<bool>("hasLogMessage") ? decawaveManager.Call<string>( "popLogMessage" ) : null;
         }
 
+		/// <summary>
+		/// Enumerate all receivers in system
+		/// </summary>
+		/// <returns>Enumerator to enumerate all receivers</returns>
         public IEnumerator<KeyValuePair<string, Receiver>> GetEnumerator()
         {
             return ( (IEnumerable<KeyValuePair<string, Receiver>>)receivers ).GetEnumerator();
         }
 
+		/// <summary>
+		/// Enumerate all receivers in system
+		/// </summary>
+		/// <returns>Enumerator to enumerate all receivers</returns>
         IEnumerator IEnumerable.GetEnumerator()
         {
             return receivers.GetEnumerator();
         }
 
+        /// <summary>
+        /// Get a receiver by serial number
+        /// </summary>
+        /// <param name="serial">Serial number of receiver</param>
+        /// <returns>A receiver</returns>
         public Receiver this[string serial]
         {
             get
@@ -131,7 +144,9 @@ namespace Marin2.Decawave.Unity3d
                 return receivers.ContainsKey( serial ) ? receivers[serial] : null;
             }
         }
-
+        /// <summary>
+        /// Get all serials of all receivers
+        /// </summary>
         public IEnumerable<string> Serials
         {
             get
@@ -139,7 +154,9 @@ namespace Marin2.Decawave.Unity3d
                 return receivers.Keys;
             }
         }
-
+        /// <summary>
+        /// Get all receivers
+        /// </summary>
         public IEnumerable<Receiver> Receivers
         {
             get
@@ -147,7 +164,9 @@ namespace Marin2.Decawave.Unity3d
                 return receivers.Values;
             }
         }
-
+        /// <summary>
+        /// Get the count of current receivers
+        /// </summary>
         public int ReceiverCount
         {
             get
